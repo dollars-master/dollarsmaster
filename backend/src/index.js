@@ -5,6 +5,8 @@ const dotenv = require('dotenv');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const logger = require('./utils/logger');
+const { initializeAIEngine } = require('./config/aiInit');
+const derivService = require('./services/derivService');
 
 dotenv.config();
 
@@ -31,14 +33,19 @@ app.use((req, res, next) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date() });
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date(),
+    environment: process.env.NODE_ENV || 'development'
+  });
 });
 
-// API Routes (will be created)
+// API Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/deriv', require('./routes/deriv'));
 app.use('/api/trading', require('./routes/trading'));
 app.use('/api/analysis', require('./routes/analysis'));
+app.use('/api/ai', require('./routes/ai'));
 
 // WebSocket events
 io.on('connection', (socket) => {
@@ -46,7 +53,19 @@ io.on('connection', (socket) => {
 
   socket.on('subscribe-market', (symbol) => {
     logger.info(`Client subscribed to ${symbol}`);
-    // Market data streaming will be handled here
+    // Subscribe to real Deriv market data
+    derivService.subscribeToPrices(symbol, (data) => {
+      socket.emit(`market-update-${symbol}`, data);
+    });
+  });
+
+  socket.on('unsubscribe-market', (symbol) => {
+    logger.info(`Client unsubscribed from ${symbol}`);
+  });
+
+  socket.on('get-analysis', async (symbol) => {
+    logger.info(`Requested analysis for ${symbol}`);
+    // Send real-time analysis
   });
 
   socket.on('disconnect', () => {
@@ -62,9 +81,30 @@ app.use((err, req, res, next) => {
   });
 });
 
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: 'Route not found' });
+});
+
 const PORT = process.env.PORT || 5000;
-httpServer.listen(PORT, () => {
+
+// Start server and initialize AI engine
+httpServer.listen(PORT, async () => {
   logger.info(`Server running on port ${PORT}`);
+  logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  
+  // Initialize AI trading engine
+  await initializeAIEngine();
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM received, shutting down gracefully');
+  derivService.disconnect();
+  httpServer.close(() => {
+    logger.info('Server closed');
+    process.exit(0);
+  });
 });
 
 module.exports = { app, io };
