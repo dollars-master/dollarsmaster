@@ -71,7 +71,7 @@ function AutomatedTrading() {
                       ? 'bg-green-600 text-white' 
                       : 'bg-gray-600 text-gray-300'
                   }`}>
-                    {strategy.enabled ? '🟢 Active' : '⚫ Inactive'}
+                    {strategy.enabled ? '🟢 Active' : '⚪ Inactive'}
                   </span>
                 </div>
                 <div className="grid grid-cols-3 gap-4 text-sm">

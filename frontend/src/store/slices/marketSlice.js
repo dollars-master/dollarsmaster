@@ -1,3 +1,5 @@
+import { createSlice } from '@reduxjs/toolkit';
+
 const marketSlice = createSlice({
   name: 'market',
   initialState: {
